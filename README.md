@@ -165,7 +165,7 @@ vercel-breach-best-practices/
 
 **Does it rotate my Supabase / Clerk / Stripe keys?** No. v1 did; deleted in v2. You rotate in the upstream dashboard.
 
-**Safe on production?** Yes. The only destructive op is emptying Vercel env var values (keys preserved, no schema loss), behind two-step consent + dry-run default. Everything else is read-only.
+**Safe on production?** Yes during an incident, with care. The skill is read-only until Step 6, where it can empty Vercel env var values — that **will** fail builds until fresh values are set. That's intentional during incident response (you don't want a build picking up leaked values), but it means "safe" is incident-context-dependent. Don't run Step 6 outside an active incident. Everything is behind two-step consent (`AskUserQuestion` YES + `--execute` flag) and dry-run default.
 
 **Secrets leaked into chat?** No. New values go to `~/incident-YYYYMMDD/secrets.txt` (`chmod 600`). Chat sees destinations, never values.
 

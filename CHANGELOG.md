@@ -1,5 +1,47 @@
 # Changelog
 
+## v2.3.2 — 2026-04-19 — Industry best-practices pass
+
+Response to a final hostile-mode critic review. Closes the legitimate
+complaints a security researcher could still raise, without over-engineering.
+
+### Added
+
+- **`scripts/test_allowlist.sh`** — runnable smoke test proving `safe_curl`
+  rejects non-allowlisted hosts. Six assertions (evil.com, raw IP,
+  `vercel.com` root (only `api.vercel.com` is allowed), wrong-TLD
+  `api.supabase.io`, localhost redirect, empty URL). Passes offline because
+  `safe_curl` refuses before making the call. Reviewers can now verify the
+  allowlist actually works instead of taking the docs' word for it.
+- **`SHA256SUMS.txt`** — hash of every tracked file. Lets anyone verify they
+  got the same bytes a reviewer audited: `shasum -a 256 -c SHA256SUMS.txt`.
+  Supply-chain integrity without requiring GPG.
+- **`THREAT_MODEL.md` "Known limitations" section** — explicit about four
+  honest gaps: (1) Claude's Bash tool can bypass `safe_curl` — mitigated by
+  human observability, not enforcement; (2) `audit.log` is honor-system, not
+  third-party verifiable; (3) "don't read secrets.txt in chat" is a soft
+  prompt, not a hard barrier; (4) no GPG signing on tags — mitigation is
+  pinning to a reviewed commit SHA.
+
+### Changed
+
+- **README FAQ "Safe on production?"** — removed unqualified "Yes." Now
+  leads with the production impact (emptying env vars breaks builds until
+  fresh values are set) and contextualizes: safe *during an incident*, not
+  outside one. Nothing changed about the skill's behavior; the answer just
+  stops overselling safety.
+
+### Why this pass
+
+v2.3.1 was structurally sound. This pass addresses *critic optics* — the
+three-four things a hostile reviewer could legitimately point at and say
+"this is overclaiming." No new behavior, no new code paths; just honesty
+about what the controls do and don't do, plus one testable assertion
+(`test_allowlist.sh`) and one integrity artifact (`SHA256SUMS.txt`) that
+industry-standard security repos ship with.
+
+Tag: v2.3.2.
+
 ## v2.3.1 — 2026-04-19 — Final polish pass
 
 Documentation cleanup after a final critic-mode review.

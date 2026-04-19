@@ -40,8 +40,18 @@ Your Vercel account might be compromised. You probably have 40+ env vars across 
 
 ## Install
 
+One command via [skills.sh](https://skills.sh) (the Vercel Labs skills registry):
+
 ```bash
-git clone https://github.com/moizibnyousaf/vercel-breach-best-practices.git \
+npx skills add MoizIbnYousaf/vercel-breach-best-practices
+```
+
+Works for Claude Code, Codex, Cursor, OpenCode, and 40+ other agents. Pass `-g` to install globally, `-a claude-code` to target a specific agent.
+
+Or clone directly if you prefer:
+
+```bash
+git clone https://github.com/MoizIbnYousaf/vercel-breach-best-practices.git \
   ~/.claude/skills/vercel-breach-best-practices
 
 chmod +x ~/.claude/skills/vercel-breach-best-practices/scripts/*.sh

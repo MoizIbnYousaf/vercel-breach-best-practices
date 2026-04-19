@@ -1,25 +1,25 @@
 ---
 name: vercel-breach-best-practices
 description: >
-  Incident-response and hardening best practices for Vercel — written in
-  response to the April 2026 Vercel security incident but applicable to any
-  Vercel compromise (platform breach, leaked Vercel access token, compromised
-  integration, suspected env-var exposure, or post-incident hardening).
-  Preserves audit evidence, pulls and AI-triages the Vercel audit log for
-  anomalies (unusual IPs, new tokens, integration changes, deleted
-  resources), enumerates every project + env var across every team,
-  classifies each by upstream service, rotates credentials in blast-radius
-  order (AWS → Stripe → DBs → auth → AI APIs → observability), empties
-  Vercel env vars, disconnects integrations, migrates secrets into the
-  sensitive-env-vars feature, and delivers a [DONE] / [MANUAL] / [BLOCKED]
-  checklist with direct dashboard links. Use whenever the user says "vercel
-  got breached", "vercel compromised", "rotate all my secrets", "leaked
-  vercel token", "my env vars might be exposed", "we need to rotate
-  everything", "emergency secret rotation", "April 2026 Vercel incident",
-  or anything similar — even if urgency is implicit or the word "breach" is
-  not used. Also use when the user shares Vercel security-bulletin content,
-  asks what to do about a Vercel incident, or wants to harden their Vercel
-  account as best practice.
+  Incident-response and hardening best practices for Vercel. Written in
+  response to the April 2026 Vercel security incident and applicable to any
+  Vercel compromise: platform breach, leaked Vercel access token,
+  compromised integration, suspected env-var exposure, or post-incident
+  hardening. Preserves audit evidence, pulls and AI-triages the Vercel
+  audit log for anomalies (unusual IPs, new tokens, integration changes,
+  deleted resources), enumerates every project and env var across every
+  team, classifies each by upstream service, rotates credentials in
+  blast-radius order (AWS, Stripe, databases, auth, AI APIs, observability),
+  empties Vercel env vars, disconnects integrations, migrates secrets into
+  the sensitive-env-vars feature, and delivers a [DONE] / [MANUAL] /
+  [BLOCKED] checklist with direct dashboard links. Use whenever the user
+  says "vercel got breached", "vercel compromised", "rotate all my
+  secrets", "leaked vercel token", "my env vars might be exposed", "we
+  need to rotate everything", "emergency secret rotation", "April 2026
+  Vercel incident", or anything similar, even if urgency is implicit or
+  the word "breach" is not used. Also use when the user shares Vercel
+  security-bulletin content, asks what to do about a Vercel incident, or
+  wants to harden their Vercel account as best practice.
 ---
 
 # Vercel Breach Best Practices — Contain, Rotate, Verify

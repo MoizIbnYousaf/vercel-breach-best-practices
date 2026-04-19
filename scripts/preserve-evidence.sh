@@ -57,6 +57,15 @@ done
 
 vcurl "$API/v5/user/tokens" > "$OUT/active-tokens.json" 2>/dev/null || echo "{}" > "$OUT/active-tokens.json"
 
+# Optional: use `vercel activity` CLI for a richer dump if the CLI is installed.
+# This supplements the API audit-log pull above with the CLI's filtering / pagination.
+if command -v vercel >/dev/null 2>&1; then
+  echo "[evidence] vercel CLI detected — pulling activity log via 'vercel activity'" >&2
+  # Last 30 days, JSON output. --all-events is the richest scope.
+  vercel activity --since 30d --output json > "$OUT/vercel-activity-30d.json" 2>/dev/null \
+    || echo "[evidence] vercel activity call failed — check CLI auth" >&2
+fi
+
 # Quick summary
 echo "" >&2
 echo "[evidence] summary:" >&2

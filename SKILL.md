@@ -94,20 +94,32 @@ Also tell the user: *before rotating any upstream key*, screenshot the "API keys
 
 ### Step 3 — Triage the audit log (Claude reads, user confirms)
 
-Read `~/incident-YYYYMMDD/audit-log-<team>.json` yourself. Scanning JSON manually is slow for the user and fast for you.
+Two ways to read Vercel's Activity Log during triage:
 
-Look for:
-- Unexpected `token.created` / `token.revoked` events
-- Unfamiliar IPs or user agents
-- `integration.created` / `integration.removed` outside business hours
-- Unexpected `member.added` / `member.role-changed`
-- Bursts of `env.listed` / `env.read` across many projects
-- `deploy-hook.created` (persistent backdoor risk)
-- DNS / domain changes
+1. **`vercel activity` CLI** (added March 2026) — best for targeted queries like "show me every env-variable-read in the last 7 days." Docs: https://vercel.com/docs/cli/activity. Example:
+   ```bash
+   vercel activity --type env-variable-read --since 7d
+   vercel activity --type deploy-hook-created --since 30d
+   vercel activity --type 'team-member-*' --since 30d
+   ```
+2. **`~/incident-YYYYMMDD/audit-log-<team>.json`** from `preserve-evidence.sh` — best for bulk `jq` analysis and keeping an immutable snapshot.
 
-Present findings as **Suspicious / Confirm / Normal**. Have the user confirm which events were theirs. Full triage checklist: `references/audit-triage.md`.
+Use the CLI when exploring. Use the JSON when grepping across many events at once.
 
-Why this matters: if the audit log shows activity the user doesn't recognize, the incident is likely *active* rather than *precautionary* — which changes Step 5's urgency.
+Highest-signal events to scan for (Vercel uses kebab-case, not dot notation):
+
+- **`env-variable-read`** and **`env-variable-read:cli:*`** — direct evidence of env-var decryption. Bursts across many projects = likely exfiltration.
+- **`deploy-hook-created`** — persistent backdoor; URL triggers builds forever until revoked.
+- **`oauth-app-token-created`** — attacker minted an OAuth token.
+- **`integration-installation-completed`** — new integration that auto-injects env vars.
+- **`firewall-bypass-created`**, **`project-automation-bypass`**, **`alias-protection-bypass-*`** — protection holes.
+- **`team-member-*`** / **`team-saml-*`** / **`team-mfa-*`** — access changes.
+- **`domain-*`** / **`dns-*`** — traffic interception risk.
+- **`drain-created`** / **`log-drain-created`** — logs being exfiltrated.
+
+Present findings as **🚨 Suspicious / ❓ Worth confirming / ✅ Normal**. Ask the user to confirm each Suspicious and Worth-confirming item. Full event table + `jq` one-liners: `references/audit-triage.md`.
+
+Why this matters: if activity shows up the user doesn't recognize, the incident is *active* rather than *precautionary* — which escalates Step 5 urgency (session invalidation included).
 
 ### Step 4 — Inventory the Vercel surface
 

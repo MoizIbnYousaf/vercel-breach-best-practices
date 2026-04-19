@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.3 — 2026-04-19 — Vercel Activity Log integration
+
+Vercel shipped `vercel activity` in the CLI on March 23, 2026 and published
+the authoritative event-type list. Integrated both.
+
+### Changed
+
+- **`references/audit-triage.md` rewritten** — replaced made-up event names
+  (`token.created`, `env.read`) with the real kebab-cased ones from Vercel's
+  docs (`env-variable-read`, `deploy-hook-created`, etc.). Added a full
+  critical/worth-confirming/benign taxonomy grounded in the official list.
+  Added `vercel activity` CLI one-liners alongside the `jq` queries.
+- **SKILL.md Step 3** — now points at the `vercel activity` CLI first, with
+  the preserved JSON as the bulk-analysis fallback. Lists the highest-signal
+  events by name so Claude knows exactly what to search for.
+- **`preserve-evidence.sh`** — if the `vercel` CLI is installed, also pulls
+  a 30-day activity dump via `vercel activity --output json`. Supplements the
+  API-only pull. Gracefully skips if CLI isn't present.
+
+### Rationale
+
+The v2.x audit-triage reference was written before the Vercel CLI had an
+activity command and before we had the authoritative event-name list. The
+old event names (`token.created`, `env.listed`) don't match what Vercel
+actually logs, so any `jq` query against them would silently return nothing.
+Now the events in the reference match reality, and Claude can invoke the CLI
+directly instead of writing brittle JSON queries.
+
+Key high-signal events now surfaced by name:
+- `env-variable-read` (and `env-variable-read:cli:*`) — direct exfiltration evidence
+- `deploy-hook-created` — persistent backdoor
+- `oauth-app-token-created` — attacker-minted OAuth token
+- `project-automation-bypass` / `firewall-bypass-created` / `alias-protection-bypass-*`
+- `drain-created` / `log-drain-created` — log exfiltration
+
 ## v2.2 — 2026-04-19 — Critic-pass corrections
 
 Self-audit in critic mode surfaced 8 issues. All fixed in this commit.

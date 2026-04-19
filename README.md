@@ -18,8 +18,6 @@ Incident response is when you're *least* equipped to audit unfamiliar code. This
 - **Dry-run default on destructive ops.** The one mutation the skill can perform (emptying Vercel env var values) requires `--execute` AND an explicit `AskUserQuestion` confirmation.
 - **Auditable in 10 minutes.** Six scripts, ~600 lines of bash, no `eval`, no dynamic shell, no post-install hooks, no telemetry.
 
-Full threat model + 30-second verification recipe: [`THREAT_MODEL.md`](THREAT_MODEL.md).
-
 ---
 
 ## The deliverable
@@ -140,8 +138,6 @@ The split is deliberate. Observation gets scripted so it's fast. Destructive act
 ```
 vercel-breach-best-practices/
 ├── SKILL.md                              # the skill Claude reads
-├── THREAT_MODEL.md                       # defends-against + 30s verify recipe
-├── CHANGELOG.md                          # v1 → current
 ├── README.md
 ├── LICENSE
 ├── scripts/
@@ -177,8 +173,6 @@ vercel-breach-best-practices/
 
 **Why not one giant script?** Incident response is conversational. You need to pause, skip a tier, ask questions mid-flight. Claude orchestrates; scripts handle the deterministic observations.
 
-**How do I verify the skill hasn't been tampered with?** Three commands in [`THREAT_MODEL.md`](THREAT_MODEL.md). Under a minute.
-
 ---
 
 ## Contributing
@@ -190,8 +184,6 @@ PRs welcome. Three high-value additions:
 - **Audit-log heuristics** in `references/audit-triage.md`. More patterns surfaced by name = less squinting for the user.
 
 Keep `SKILL.md` under 500 lines. **Never add a script that rotates upstream credentials** — that's the one architectural rule.
-
-Security disclosures: see [`SECURITY.md`](SECURITY.md).
 
 ---
 

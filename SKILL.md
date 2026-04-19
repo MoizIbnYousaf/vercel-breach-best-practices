@@ -49,7 +49,7 @@ Every network call goes to **exactly one of two hosts**:
 
 **No third-party endpoints. No telemetry. No auto-upload.** Enforced in code: `scripts/_common.sh` has a hardcoded `ALLOWED_HOSTS` list; every outbound request funnels through `safe_curl` which rejects anything else. Every API call is logged to `~/incident-YYYYMMDD/audit.log` (timestamp, method, host, path — never bodies or tokens).
 
-Verify in 30 seconds: read `THREAT_MODEL.md`.
+Verify in under a minute: `grep -A3 ALLOWED_HOSTS scripts/_common.sh` and confirm only `api.vercel.com` and `api.supabase.com` are in the list.
 
 ---
 

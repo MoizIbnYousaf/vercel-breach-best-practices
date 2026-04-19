@@ -1,5 +1,45 @@
 # Changelog
 
+## v2.1 — 2026-04-19 — Advisor framing + exposure interview
+
+Tonal and structural refinement based on critic-mode review. No new scripts,
+no new hosts, no new permissions. Same safety posture as v2.
+
+### Added
+
+- **`references/exposure-interview.md`** — optional Step 4.5. A batched markdown
+  checklist the user fills in *after* inventory, covering three classes of
+  exposure the Vercel API cannot see:
+  1. Historical env vars deleted during the incident window
+  2. Out-of-band copies (Slack, git history, screenshots)
+  3. Vercel-adjacent exposures (deploy hooks, Git OAuth, past team members)
+  Explicitly scoped to Vercel exposure — not a generic security questionnaire.
+  Opt-in, never blocks containment.
+
+### Changed
+
+- **SKILL.md reframed as advisor, not director.** Each step now surfaces
+  observations, trade-offs, and options — then uses `AskUserQuestion` for the
+  decision. Scripts are framed as observation tools, not action dictators.
+- **Added "What this skill is NOT" section** — makes scope boundary explicit.
+  No autonomous rotation, no generic security audit, no decision-making on
+  behalf of the user.
+- **Step 5 rewritten** around trade-off thinking (blast radius, rotation cost,
+  urgency, ready state) rather than a linear click-through.
+- **"When uncertain, prefer dashboard"** promoted to a first-class operating
+  principle. Dashboard clicks are visible, reversible, and well-understood.
+
+### Rationale
+
+v2 made the skill safer. v2.1 makes it a better *thinking partner*. The shift:
+a skill that runs stuff during an incident is a liability; a skill that helps
+the user think clearly is an asset. Default to the second.
+
+Critic-mode review (simulated forefy / senior DFIR / HN skeptics) flagged
+scope-creep risk on the exposure interview — addressed by anchoring strictly
+to "exposure that passed through Vercel" and never framing the interview as a
+gate or ground truth.
+
 ## v2 — 2026-04-19 — Hardening pass
 
 Response to public security feedback on v1. Goal: reduce the skill's attack surface and make supply-chain review trivial.

@@ -48,7 +48,7 @@ Dashboard only: https://dash.cloudflare.com/profile/api-tokens — delete each t
 
 ```bash
 # Postgres
-psql "$DATABASE_URL" -c "ALTER USER <app_user> WITH PASSWORD '$(openssl rand -hex 32)';"
+psql "<YOUR_DATABASE_URL>" -c "ALTER USER <app_user> WITH PASSWORD '$(openssl rand -hex 32)';"
 
 # MySQL
 mysql -e "ALTER USER '<app_user>'@'%' IDENTIFIED BY '$(openssl rand -hex 32)';"
@@ -60,15 +60,14 @@ Save new DSN to `secrets.txt`.
 
 ## Tier 2 — Managed data services
 
-### Supabase (automated)
+### Supabase (dashboard-only)
 
-```bash
-scripts/rotate-supabase.sh <project-ref>
-```
+This skill does not automate Supabase rotation. Dashboard path:
 
-Does: rotates ES256 JWT signing keys, rotates DB password, checks project is not paused. Skips paused projects with a warning.
-
-Manual fallback if `SUPABASE_ACCESS_TOKEN` is missing: dashboard → Settings → API → Generate new service-role key; Settings → Database → Reset database password.
+1. https://supabase.com/dashboard/project/<ref>/settings/jwt-signing-keys → rotate the ES256 signing key (this invalidates all signed-in user sessions — expected).
+2. https://supabase.com/dashboard/project/<ref>/settings/database → Reset database password.
+3. https://supabase.com/dashboard/project/<ref>/settings/api → regenerate the service-role key if you see an option (some projects tie this to the signing key rotation above).
+4. Update `<YOUR_DATABASE_URL>`, `<YOUR_DIRECT_URL>`, and `SUPABASE_SERVICE_ROLE_KEY` in Vercel env with the new values.
 
 ### Neon
 
@@ -106,15 +105,18 @@ turso db tokens invalidate <db-name>
 
 Turso has `--expiration none` for service tokens, but prefer short expirations where possible.
 
-### Upstash Redis
+### Upstash Redis + QStash
 
-API:
-```bash
-curl -u "$EMAIL:$API_KEY" -X POST \
-  "https://api.upstash.com/v2/redis/reset-password/$DATABASE_ID"
-```
+Upstash published an official post-incident rotation guide during the April 2026 Vercel event — **follow that as the canonical reference**:
 
-Or dashboard → database → Reset Password.
+- [Rotate Upstash Secrets After Vercel Incident](https://upstash.com/blog/rotate-upstash-secrets-after-vercel-incident) (Upstash blog)
+
+Summary of what to rotate per database:
+- **Redis**: dashboard → database → Details → **Reset Password** (regenerates `UPSTASH_REDIS_REST_TOKEN` and refreshes connection URLs).
+- **QStash**: console → QStash → **Regenerate** `QSTASH_TOKEN`. Also rotate `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY`.
+- **Vector / Kafka / Workflow**: each has a "Reset" or "Regenerate" action in the database settings.
+
+After rotating, update Vercel env vars with the new values. If the database is connected via the Upstash Vercel integration, disconnect + reconnect to let Vercel re-inject fresh credentials.
 
 ### Vercel KV
 

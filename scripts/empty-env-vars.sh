@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Set every env var on one Vercel project to "" (empty). Does not delete — keeps
-# keys so values can be re-set after upstream rotation.
+# Set every env var on one Vercel project to "" (empty). Does not delete —
+# keeps keys so values can be re-set after upstream rotation.
 #
 # Usage:
-#   VERCEL_TOKEN=... ./empty-env-vars.sh <project_id> <team_id> [--dry-run]
+#   VERCEL_TOKEN=... ./empty-env-vars.sh <project_id> <team_id>            # dry-run (default, safe)
+#   VERCEL_TOKEN=... ./empty-env-vars.sh <project_id> <team_id> --execute  # actually mutate
 #
 # Pass team_id="" (empty string) for personal-account projects.
 # Skips VERCEL_* system vars. Logs per-var results to stdout.
@@ -18,13 +19,16 @@ discover_vercel_token
 
 PID="${1:?project_id required}"
 TID="${2:-}"   # may be empty for personal scope
-DRY="${3:-}"
+parse_execute_flag "$@"
 
 API="https://api.vercel.com"
 qs=""
 [ -n "$TID" ] && qs="?teamId=$TID"
 
 envs=$(vcurl "$API/v9/projects/$PID/env$qs" | jq -c '.envs[]')
+
+count=$(echo "$envs" | wc -l | tr -d ' ')
+echo "[scope] $count env vars on project $PID (team: ${TID:-personal})" >&2
 
 ok=0; skip=0; fail=0
 while IFS= read -r env; do
@@ -36,7 +40,7 @@ while IFS= read -r env; do
     skip=$((skip+1))
     continue
   fi
-  if [[ "$DRY" == "--dry-run" ]]; then
+  if [ "$DRY_RUN" = "1" ]; then
     echo "DRY   $key ($id)"
     continue
   fi
@@ -53,4 +57,8 @@ while IFS= read -r env; do
 done <<< "$envs"
 
 echo ""
-echo "Summary: $ok emptied, $skip skipped, $fail failed"
+if [ "$DRY_RUN" = "1" ]; then
+  echo "Dry-run summary: would empty $((count - skip)) vars, $skip would be skipped. Re-run with --execute to mutate."
+else
+  echo "Summary: $ok emptied, $skip skipped, $fail failed"
+fi

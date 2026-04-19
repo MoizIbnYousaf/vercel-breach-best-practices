@@ -1,227 +1,208 @@
 ---
 name: vercel-breach-best-practices
 description: >
-  Incident-response and hardening best practices for Vercel. Written in
-  response to the April 2026 Vercel security incident and applicable to any
-  Vercel compromise: platform breach, leaked Vercel access token,
-  compromised integration, suspected env-var exposure, or post-incident
-  hardening. Preserves audit evidence, pulls and AI-triages the Vercel
-  audit log for anomalies (unusual IPs, new tokens, integration changes,
-  deleted resources), enumerates every project and env var across every
-  team, classifies each by upstream service, rotates credentials in
-  blast-radius order (AWS, Stripe, databases, auth, AI APIs, observability),
-  empties Vercel env vars, disconnects integrations, migrates secrets into
-  the sensitive-env-vars feature, and delivers a [DONE] / [MANUAL] /
-  [BLOCKED] checklist with direct dashboard links. Use whenever the user
-  says "vercel got breached", "vercel compromised", "rotate all my
-  secrets", "leaked vercel token", "my env vars might be exposed", "we
-  need to rotate everything", "emergency secret rotation", "April 2026
-  Vercel incident", or anything similar, even if urgency is implicit or
-  the word "breach" is not used. Also use when the user shares Vercel
-  security-bulletin content, asks what to do about a Vercel incident, or
-  wants to harden their Vercel account as best practice.
+  Incident-response and hardening playbook for Vercel compromises (platform
+  breach, leaked access token, compromised integration, suspected env-var
+  exposure, post-incident hardening). Written after the April 2026 Vercel
+  incident. Preserves audit evidence, enumerates projects and env vars,
+  classifies secrets by upstream service, and produces a prioritized
+  [DONE]/[MANUAL]/[BLOCKED] checklist with direct dashboard rotation links.
+  The skill is an advisor, not an autonomous rotator — the user rotates
+  every credential themselves in their own dashboards. Use when the user
+  mentions "vercel got breached", "rotate my secrets", "leaked vercel
+  token", "env vars exposed", "April 2026 Vercel incident", or similar,
+  even if "breach" isn't the exact word.
 ---
 
-# Vercel Breach Best Practices — Contain, Rotate, Verify
+# Vercel Breach Best Practices — Contain, Guide, Verify
 
-You are the incident commander. Vercel is (or might be) compromised, which means the adversary may hold every environment variable, access token, and integration credential that ever touched the user's Vercel account. Your job has three beats:
+You are the incident commander and an advisor. Vercel is (or might be) compromised, which means the adversary may hold every environment variable, access token, and integration credential that ever touched the user's Vercel account.
 
-1. **Contain** — without destroying evidence.
-2. **Rotate** — what actually invalidates leaked keys.
-3. **Verify** — prod still works end-to-end.
+**This skill does not rotate credentials autonomously.** The user rotates everything in their own dashboards. The skill's job is to:
+
+1. **Preserve evidence** before any mutation
+2. **Enumerate** the Vercel surface (projects, env vars, tokens, members, integrations)
+3. **Classify** every secret by upstream service
+4. **Guide** the user through rotations in blast-radius order with direct dashboard links
+5. **Verify** prod works end-to-end after rotation
 
 Speed matters. Precision matters more — a rushed rotation that breaks prod is worse than a 15-minute delay.
 
-This skill was built in the aftermath of the [April 2026 Vercel security incident](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident) but the playbook is general-purpose: any time Vercel is the suspected source of credential exposure, run through these steps.
+Built in response to the [April 2026 Vercel security incident](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident). General-purpose for any Vercel-sourced credential exposure.
 
-## How to navigate this skill
+## Consent model (non-negotiable)
 
-- **This file** — the workflow, the ordering rules, and the operating principles. Always in context.
-- **`scripts/`** — runnable helpers. Use them instead of hand-rolling equivalents mid-incident.
-- **`references/rotation-playbooks.md`** — per-service rotation recipes (Supabase, Stripe, AWS, etc.). Read the specific services the inventory surfaces; don't load the whole file upfront.
-- **`references/classifier.md`** — env-var-name → service patterns. `enumerate.sh` already applies these; only read this file if you need to classify something unusual by hand.
-- **`references/audit-triage.md`** — what to look for in a Vercel audit log to spot compromise indicators.
-- **`references/checklist-template.md`** — the final deliverable format.
+Before ANY mutation (emptying Vercel env vars, revoking Vercel tokens), use `AskUserQuestion` with:
+- exact scope (which project, how many env vars)
+- exact effect (builds will fail until fresh values set)
+- three options: proceed / skip / do via dashboard instead
+
+The skill never rotates credentials at upstream services (Supabase, Clerk, Stripe, Upstash, Anthropic, etc.) via API. Those rotations happen in the user's dashboards. The skill provides the link, checklist item, and a place to save the new value.
+
+## What this skill calls out to (transparency)
+
+Every network call from this skill goes to **exactly one of two hosts**:
+
+- `api.vercel.com` — read inventory, audit logs, deploy history, team roster, tokens. Optionally (with `--execute` flag + user consent): empty Vercel env var values, revoke Vercel tokens.
+- `api.supabase.com` — only if user opts in to pulling Supabase audit data via their own PAT. No automated rotations.
+
+**No third-party endpoints. No telemetry. No auto-upload. No data leaves the user's machine except direct API calls to the two hosts above using the user's own tokens.**
+
+Enforced in code: `scripts/_common.sh` has a hardcoded `ALLOWED_HOSTS` list. Every outbound request funnels through `safe_curl` which rejects any host outside that list. Grep it: `grep -A3 ALLOWED_HOSTS scripts/_common.sh`.
+
+Every API call is logged to `~/incident-YYYYMMDD/audit.log` (timestamp, method, host, path — never bodies or tokens). Tail it during a run: `tail -f ~/incident-*/audit.log`.
+
+## Scripts in this skill
+
+- `preserve-evidence.sh` — **read-only**. Pulls Vercel audit log, deploys, teams, members, integrations, active tokens.
+- `enumerate.sh` — **read-only**. Lists every project + env var key across every team, classified by upstream service. Values are never read.
+- `scan-build-logs.sh` — **read-only**. Scans last N deploys for leaked-secret patterns (e.g., accidentally logged `console.log(process.env)` output).
+- `empty-env-vars.sh` — **destructive, `--execute` required, dry-run default**. PATCHes every env var value on one project to `""`. Keeps keys so schema is intact. No upstream rotation.
+- `generate-secrets.sh` — **local-only**. `openssl rand` for local auth secrets (`AUTH_SECRET`, `JWT_SECRET`). No network.
+
+Gone from prior versions: `rotate-supabase.sh`. Removed to enforce user-does-rotation. If you need automated Supabase rotation, run their official API yourself after explicit review — we won't ship that path in this skill.
 
 ## The workflow
 
-### Step 1 — Scope (one AskUserQuestion call, before anything destructive)
+### Step 1 — Scope (one message, before anything destructive)
 
-Call `AskUserQuestion` once with exactly these four questions. Do not ask them as free text — tappable options are faster during an incident and easier to re-parse.
+Ask the user in one message:
 
-**Q1 — `Vercel CLI`** — *"Do you want to use the Vercel CLI to continue?"*
-- `Yes — CLI already logged in` — *"Use `vercel` CLI; scripts auto-read the token from the CLI's `auth.json`. (Recommended)"*
-- ``Yes — I'll run `vercel login` now`` — *"Pause while the user authenticates, then proceed."*
-- `No — use VERCEL_TOKEN env var` — *"User will export `VERCEL_TOKEN=vca_…` from a dashboard-generated token."*
-- `No — dashboard only` — *"User can't run scripts; we'll hand-walk dashboard steps."*
+1. Which Vercel account(s) / team(s) are affected?
+2. Confirmed breach or precautionary?
+3. Do you have `VERCEL_TOKEN` available? (`~/.vercel/auth.json` or new at https://vercel.com/account/tokens — team-scoped, not account-wide)
+4. Which service CLIs/tokens are authenticated locally?
 
-**Q2 — `Scope`** — *"Which Vercel scope is affected?"*
-- `Personal account only`
-- `One team`
-- `Multiple teams`
-- `Everything (personal + all teams)`
+Then sketch the plan and get go-ahead.
 
-**Q3 — `Incident type`** — *"Confirmed breach or precautionary rotation?"*
-- `Confirmed breach — assume tokens leaked`
-- `Precautionary — no evidence, hardening`
-- `Unknown — triage audit log first`
-
-**Q4 — `Local CLIs`** (multiSelect) — *"Which upstream CLIs / tokens are already authenticated on this machine?"*
-- `AWS (aws configured)`
-- `Supabase (SUPABASE_ACCESS_TOKEN)`
-- `GitHub (gh auth)`
-- `None yet — set up as needed`
-
-Then sketch the plan (steps 2–10) and get go-ahead before anything destructive.
-
-#### Auth branches — what to do after Q1
-
-| Q1 answer | Immediate next action |
-|---|---|
-| **CLI logged in** | Run `vercel whoami` to verify. Scripts auto-discover the token via `_common.sh :: discover_vercel_token`. Proceed to Step 2. |
-| **Will run `vercel login`** | Tell the user to run it; wait; then `vercel whoami` to confirm; proceed. |
-| **`VERCEL_TOKEN` env** | Remind the user to export a **freshly scoped** token (not one possibly leaked). Verify with `curl -s -H "Authorization: Bearer $VERCEL_TOKEN" https://api.vercel.com/v2/user`. |
-| **Dashboard only** | Skip `scripts/enumerate.sh` and `scripts/preserve-evidence.sh`. Hand-walk Steps 5–9 via dashboard links. Mark the whole run as `[MANUAL]`-heavy in the final checklist. |
-
-If Q3 = `Confirmed breach`, bump urgency: **disconnect integrations (Step 7) before finishing upstream rotation**, not after — the adversary is presumed active and integration-injected credentials keep re-arming otherwise.
-
-### Step 2 — Preserve evidence
+### Step 2 — Preserve evidence (read-only, no consent needed)
 
 ```bash
-scripts/preserve-evidence.sh
+bash scripts/preserve-evidence.sh
 ```
 
-This dumps Vercel audit logs, deployment history, team roster, and active tokens to `~/incident-$(date +%Y%m%d)/`. Do it **before** rotating — once keys rotate, some upstream providers stop surfacing the old key's activity, and the attacker's trail is lost.
+Dumps Vercel audit logs, deploys, tokens, members, integrations to `~/incident-YYYYMMDD/`. Read-only.
 
-For each upstream service in scope, ask the user to screenshot the "API keys last used" view in their dashboard (Stripe, Supabase, OpenAI, etc.) before rotating. Flag as a [MANUAL] item.
+Also ask the user to screenshot "API keys last used" in each upstream dashboard (Stripe, Supabase, OpenAI, Anthropic) before rotating. Flag as [MANUAL].
 
-### Step 3 — AI-triage the Vercel audit log
+### Step 3 — Triage the audit log (you read it, not the user)
 
-Don't just hand the audit log back to the user — you can read it. Load `~/incident-$(date +%Y%m%d)/audit-log.json` yourself and flag anomalies:
+Load `~/incident-YYYYMMDD/audit-log-<team>.json` and flag anomalies:
+- Unexpected `token.created` / `token.revoked` events
+- Unfamiliar IPs or user agents
+- `integration.created` / `integration.removed` outside business hours
+- Unexpected `member.added` / `member.role-changed`
+- Bursts of `env.listed` / `env.read` across many projects
+- `deploy-hook.created` (persistent backdoor risk)
+- DNS / domain changes
 
-- **Token events** — any `token.created` / `token.revoked` in the last 60 days that the user doesn't recognize.
-- **Unusual IPs / user agents** — group events by source IP and user agent; flag anything that isn't the user's known devices.
-- **Integration changes** — `integration.created` / `integration.removed`, especially outside business hours.
-- **Team membership** — `member.added` / `member.removed` / `member.role-changed` the user didn't do.
-- **Env-var exfiltration shape** — bursts of `env.listed` / `env.read` across many projects in a short window.
-- **Deploy hook creation** — `deploy-hook.created` can provide persistent backdoor access.
-- **Domain or DNS changes** — `domain.added` / `dns.updated` — phishing / MITM risk.
-- **Audit-log access** — some accounts can see `audit.read` events; repeated access from an unfamiliar session is itself a signal.
+Present findings as **Suspicious / Confirm / Normal**. Have the user confirm which events are theirs.
 
-Full triage checklist in `references/audit-triage.md`. Present findings as a short list — **Suspicious**, **Worth confirming**, **Looks normal** — and ask the user to confirm which events are theirs before declaring the account clean.
+Full triage checklist: `references/audit-triage.md`.
 
 ### Step 4 — Inventory the Vercel surface
 
 ```bash
-scripts/enumerate.sh > ~/incident-$(date +%Y%m%d)/inventory.json
+bash scripts/enumerate.sh > ~/incident-YYYYMMDD/inventory.json
 ```
 
-Walks every team and project the token can see, pulls env-var names (never values), and classifies each by upstream service. Prints a grouped summary to stderr and the full JSON to stdout.
+Lists every project + env-var *name* (never values), classified by upstream service.
 
-Review the summary with the user and confirm scope before rotating. If the inventory is surprising — unexpected projects, unknown services, huge counts — pause and re-confirm.
+Review with the user. Confirm scope. If surprising — unexpected projects, unknown services — pause and re-confirm.
 
-### Step 5 — Rotate upstream (the step that actually kills leaked keys)
+### Step 5 — Guide upstream rotations (user does every one)
 
-This is the critical step. Emptying Vercel env vars (step 6) does not invalidate leaked secrets — the upstream service still accepts the old key. Rotating upstream is what makes leaked values dead.
+**The skill does NOT rotate upstream services.** For each service in the inventory, you:
 
-Work in blast-radius order:
+1. Use `AskUserQuestion` to confirm intent to rotate that service now.
+2. Show the direct dashboard link.
+3. Tell them the exact clicks.
+4. Ask them to confirm when done.
+5. Offer to save the new value to `~/incident-YYYYMMDD/secrets.txt` (chmod 600) — never to chat.
 
-| Tier | Services | Why first |
+Blast-radius order:
+
+| Tier | Services | Why |
 |---|---|---|
-| 1 | AWS, GCP, Cloudflare, self-hosted DB roots | Full cloud-account access possible |
-| 2 | Supabase, Neon, PlanetScale, Turso, Upstash, Mongo Atlas | User data + lateral movement |
-| 3 | Clerk, Auth0, local auth secrets (AUTH_SECRET etc.) | Session hijack + impersonation |
-| 4 | Stripe, Paddle, Lemon Squeezy | Direct money exfiltration |
-| 5 | Resend, SendGrid, Postmark, Mailgun, Twilio | Phishing from legit sender |
-| 6 | OpenAI, Anthropic, Google AI, Replicate, Groq | Direct $ burn via API abuse |
-| 7 | Sentry, PostHog | Lower impact but may expose data |
-| 8 | GitHub, GitLab OAuth + PATs | Source-code access |
-| 9 | Slack / Discord webhook URLs, webhook signing secrets | Impersonation + spoofed events |
+| 1 | AWS, GCP, Cloudflare, self-hosted DB roots | Full cloud access |
+| 2 | Supabase, Neon, PlanetScale, Turso, Upstash, Mongo Atlas | User data |
+| 3 | Clerk, Auth0, local auth secrets | Session hijack |
+| 4 | Stripe, Paddle, Lemon Squeezy | Money |
+| 5 | Resend, SendGrid, Postmark, Twilio | Phishing from legit sender |
+| 6 | OpenAI, Anthropic, Google AI, Groq | $ burn |
+| 7 | Sentry, PostHog | Lower impact |
+| 8 | GitHub, GitLab OAuth + PATs | Source access |
+| 9 | Slack/Discord webhooks | Impersonation |
 
-For each service the inventory surfaced, read the matching section in `references/rotation-playbooks.md` and execute. Automate where possible. The biggest automation wins bundled with this skill:
+Per-service guidance (dashboard links, click paths, grace periods) lives in `references/rotation-playbooks.md`. Read only the sections you need.
 
-```bash
-scripts/rotate-supabase.sh <project-ref>   # rotates JWT signing keys + DB password
-scripts/generate-secrets.sh AUTH_SECRET NEXTAUTH_SECRET JWT_SECRET   # local secret gen
-```
+### Step 6 — Empty Vercel env vars (after upstream is rotated)
 
-Everything else is either a provider CLI/API you hit directly (AWS, Neon, Turso, PlanetScale) or a dashboard action that belongs in the [MANUAL] checklist with a direct link.
+After the user has rotated upstream credentials, empty the Vercel-side values so builds can't deploy with stale references.
 
-Rotating local auth secrets (`AUTH_SECRET`, `NEXTAUTH_SECRET`, `JWT_SECRET`, `BETTER_AUTH_SECRET`, `SESSION_SECRET`) invalidates all existing sessions. Warn the user before pulling that trigger.
-
-### Step 6 — Empty Vercel env vars
+`AskUserQuestion` confirm the project + count (e.g., "empty 20 env vars across skillcreator-ai?"). On YES:
 
 ```bash
-scripts/empty-env-vars.sh <project_id> <team_id> --dry-run   # inspect
-scripts/empty-env-vars.sh <project_id> <team_id>             # execute
+bash scripts/empty-env-vars.sh <project_id> <team_id>              # dry-run first (default)
+bash scripts/empty-env-vars.sh <project_id> <team_id> --execute    # mutate after reviewing dry-run
 ```
 
-Do this **after** upstream rotation is underway, not before. The reason: empty values fail builds loudly, which is correct during an incident — you want new deploys to fail fast until fresh values are set. Keys are preserved (not deleted) so schema is intact and fresh values can be dropped in during step 9.
-
-Expected, acceptable failures: `VERCEL_*` system vars are read-only; integration-managed vars (Supabase integration, Neon integration, etc.) reject the PATCH. Disconnect those integrations in step 7 instead.
+Expected failures on integration-managed vars (Supabase integration, etc.) — disconnect those integrations instead (step 7).
 
 ### Step 7 — Disconnect compromised integrations
 
-At https://vercel.com/<team>/~/integrations, remove each integration that was re-injecting credentials (Supabase, Sentry, Neon, Upstash, Vercel KV, etc.). Reconnect in step 9, after upstream is clean, so only fresh values get re-injected.
+Dashboard-only: https://vercel.com/<team>/~/integrations → remove each. Reconnect in step 9 after upstream is clean.
 
-### Step 8 — Rotate the Vercel account itself
+### Step 8 — Rotate the Vercel account itself (user does this)
 
-The breach assumption is that Vercel's internal state is compromised. Remind the user to:
+Via dashboard:
+- https://vercel.com/account/tokens — delete all, create fresh team-scoped
+- https://vercel.com/account/security — verify 2FA
+- Review team members, remove suspicious
+- Regenerate deploy hooks per project
+- Review + reauthorize Vercel's GitHub/GitLab OAuth app
 
-- Rotate Vercel access tokens → https://vercel.com/account/tokens (delete all, create fresh, minimum scope).
-- Rotate team tokens if the account has them.
-- Enable / verify 2FA → https://vercel.com/account/security.
-- Review team members + remove anyone suspicious.
-- Regenerate deploy hooks per project (Settings → Git → Deploy Hooks).
-- Review + reauthorize Vercel's GitHub/GitLab OAuth app.
+### Step 9 — Redeploy with fresh values + Sensitive flag
 
-### Step 9 — Redeploy with fresh values + enable sensitive env vars
-
-Once upstream is rotated:
-
-1. Collect new values safely (password manager, not chat).
-2. Set them in Vercel — and this time, mark every secret as **sensitive** (Settings → Environment Variables → toggle "Sensitive" before creating). Sensitive env vars store values in an unreadable format; once created, values cannot be retrieved via dashboard or API — only overwritten. A future token leak won't automatically leak values. Two caveats:
-   - Sensitive only works in **Production** and **Preview**, not Development. Dev env vars stay readable.
-   - To convert an *existing* env var, you must remove it and re-create it with the Sensitive toggle on — the edit dialog can't flip the flag.
-3. Enable the team-wide policy `Settings → Security & Privacy → Enforce Sensitive Environment Variables` so future env vars default to sensitive without thinking about it.
-4. Regenerate GitHub/GitLab tokens attached to Vercel's Git integration (Settings → Git → Connected Git Provider → reauthorize) — these cache in Vercel's backend and were in scope of the breach.
-5. Scan recent build logs for leaked secrets — `console.log(process.env)`, debug prints, or tool output can bake env values into build logs stored on Vercel. If any secret ever shipped through a log, treat it as compromised even after rotation:
+1. User collects new values (password manager, not chat).
+2. **Enable team-wide policy first**: https://vercel.com/teams/<slug>/settings/security → "Enforce Sensitive Environment Variables". Do this BEFORE re-populating.
+3. Set new values in Vercel (they'll be Sensitive by default thanks to policy).
+4. Regenerate Git provider OAuth.
+5. Scan build logs for leaked secrets:
    ```bash
-   scripts/scan-build-logs.sh   # pulls last 20 deploy logs per project, greps for common secret patterns
+   bash scripts/scan-build-logs.sh <project_id> <team_id>
    ```
-6. Reconnect integrations you disconnected in step 7.
-7. Trigger a fresh deploy per project: `vercel --prod` or Git push.
-8. Verify each service end-to-end in prod.
+6. Reconnect integrations disconnected in step 7.
+7. `vercel --prod` or Git push.
+8. Verify each service end-to-end.
 
-### Step 10 — Deliver the checklist
+### Step 10 — Deliver checklist
 
-Assemble the `[DONE]` / `[MANUAL]` / `[BLOCKED]` checklist using the format in `references/checklist-template.md`. Save to `~/incident-$(date +%Y%m%d)/checklist.md`.
+Assemble the `[DONE] / [MANUAL] / [BLOCKED]` checklist using `references/checklist-template.md`. Save to `~/incident-YYYYMMDD/checklist.md`.
 
-This checklist is the real deliverable — everything else is plumbing. Make it clean, copy-pasteable, and ordered by what the user should do first (money + cloud before analytics).
+### Step 11 — Offer to wipe secrets
+
+Once the user confirms new values are in a password manager, `AskUserQuestion`: "incident response complete — wipe `~/incident-YYYYMMDD/secrets.txt` and `audit.log` now?"
 
 ## Operating principles
 
-- **Evidence before destruction.** Logs first, rotation second. An attacker's trail is irreplaceable.
-- **Read the logs yourself.** You can parse the audit JSON faster than the user can click through 200 rows. Surface anomalies as a short list.
-- **Upstream before Vercel.** Rotating upstream is what kills leaked keys. Emptying Vercel is hygiene.
-- **Highest blast radius first.** Money and cloud (AWS, Stripe) before developer tools (analytics, Sentry).
-- **Never paste new secrets into chat.** Save to a local file in the incident folder and tell the user where. Minimize exposure surface.
-- **Confirm before batched destructive actions.** Show the count and the scope ("about to empty 47 env vars across 6 projects"), then proceed.
-- **Empty env vars, don't delete them.** Deleting loses the key; empty values fail builds loudly which is correct for an incident. Fresh values go in after upstream is rotated.
-- **Track paused/archived resources.** Inactive Supabase projects can be skipped; archived Vercel projects still have live env vars — treat them as live.
-- **Sessions will break.** Rotating auth secrets logs everyone out. Warn first.
+- **Evidence before destruction.** Always.
+- **User rotates upstream.** Skill never calls a third-party rotation API.
+- **Two-step consent for Vercel mutations.** `AskUserQuestion` with scope + effect, then again at execute.
+- **Dry-run default.** `--execute` required for any mutation.
+- **Read logs yourself.** You parse audit JSON faster than the user clicks through rows.
+- **Never paste new secrets into chat.** Save to local file in the incident folder.
+- **Empty env vars, don't delete them.** Deleting loses keys; empty values fail builds loudly — correct for incident.
+- **Rotating auth secrets invalidates sessions.** Warn before pulling that trigger.
 - **Don't trust "I think I rotated that."** Verify by listing keys again after each rotation.
-- **Time-box integration reconnection.** Disconnect in step 7; reconnect in step 9. Not the same minute.
-- **Never guess at an unfamiliar env var.** If the classifier returned `unknown`, put it in `[BLOCKED]` and ask the user what service owns it.
-- **Mark everything sensitive going forward.** Non-sensitive env vars are legible from the dashboard and API. Sensitive ones aren't. Use the feature.
-- **The checklist is the deliverable.** If you only get one thing right, make it that.
+- **When uncertain, prefer dashboard.** Faster, visible, and no automation risk.
+- **The checklist is the deliverable.** If one thing is right, make it that.
 
 ## When things go sideways
 
-- **`VERCEL_TOKEN` missing or invalid** — ask the user to generate a fresh one at https://vercel.com/account/tokens with scope limited to the affected team(s). Don't proceed without it.
-- **Personal account, no teams** — `enumerate.sh` handles this: teams come back empty and it falls through to personal scope. Projects still enumerate normally.
-- **A single team's API call 403s** — the token is probably viewer-role on that team. Skip it and continue; note in the checklist as `[BLOCKED] team <slug> — token lacks access`.
-- **Supabase project paused** — `rotate-supabase.sh` skips paused projects by design. Note in checklist.
-- **User balks at session invalidation** — don't rotate auth secrets unless they explicitly green-light it. Offer the alternative: rotate everything else now, schedule auth-secret rotation off-hours.
-- **User wants to stop halfway** — that's fine; hand them the partial checklist with a `[INCOMPLETE]` section listing what wasn't rotated. Half a rotation is still better than none.
-- **`jq` not installed** — `brew install jq` on macOS, `apt install jq` on Debian/Ubuntu. The scripts hard-depend on it for safe JSON parsing.
+- **`VERCEL_TOKEN` missing** — ask the user to generate a team-scoped one at https://vercel.com/account/tokens. Don't proceed without it.
+- **A team's API call 403s** — viewer-role token. Skip and note `[BLOCKED] team <slug> — token lacks access`.
+- **Supabase project paused** — script handles it. Note in checklist.
+- **User balks at session invalidation** — don't rotate auth secrets without explicit green-light.
+- **User wants to stop halfway** — fine. Give them the partial checklist with `[INCOMPLETE]` section.
+- **`jq` not installed** — use your system package manager to install it. The scripts hard-depend on jq for safe JSON parsing.

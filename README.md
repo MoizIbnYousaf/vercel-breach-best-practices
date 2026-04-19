@@ -2,7 +2,7 @@
 
 A Claude Code skill that runs the Vercel incident-response playbook for you. Point it at a Vercel account, it enumerates every project and env var, reads the audit log for anomalies, rotates upstream credentials in blast-radius order, empties the Vercel env vars, and hands you a final checklist of what's done vs. what needs your hands.
 
-Built and based out of [April 2026 Vercel security bulletin](https://vercel.com/knowledge/vercel-april-2026-security-incident) landed. Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, or just general post-incident hardening.
+Built and based out of [April 2026 Vercel security bulletin](https://vercel.com/kb/guide/vercel-april-2026-security-incident) landed. Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, or just general post-incident hardening.
 
 Vercel's own bulletin said: review your activity log, rotate environment variables, use the sensitive-environment-variables feature. This skill does all three for you, and then keeps going across every upstream service your Vercel projects ever touched.
 
@@ -179,6 +179,6 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-The [April 2026 Vercel security bulletin](https://vercel.com/knowledge/vercel-april-2026-security-incident) for the initial prompt. Vercel's [`vercel-cli-with-tokens`](https://vercel.com/docs/claude-code) skill for the token-discovery pattern. Anthropic's [Claude Code skill-creator](https://docs.claude.com/claude-code/skills) for the SKILL.md structure.
+The [April 2026 Vercel security bulletin](https://vercel.com/kb/guide/vercel-april-2026-security-incident) for the initial prompt. Vercel's [`vercel-cli-with-tokens`](https://vercel.com/docs/claude-code) skill for the token-discovery pattern. Anthropic's [Claude Code skill-creator](https://docs.claude.com/claude-code/skills) for the SKILL.md structure.
 
 Built with Claude Code in an afternoon. Shipped the same day Vercel shipped the bulletin.

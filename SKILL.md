@@ -32,7 +32,7 @@ You are the incident commander. Vercel is (or might be) compromised, which means
 
 Speed matters. Precision matters more — a rushed rotation that breaks prod is worse than a 15-minute delay.
 
-This skill was built in the aftermath of the [April 2026 Vercel security incident](https://vercel.com/changelog) but the playbook is general-purpose: any time Vercel is the suspected source of credential exposure, run through these steps.
+This skill was built in the aftermath of the [April 2026 Vercel security incident](https://vercel.com/kb/guide/vercel-april-2026-security-incident) but the playbook is general-purpose: any time Vercel is the suspected source of credential exposure, run through these steps.
 
 ## How to navigate this skill
 

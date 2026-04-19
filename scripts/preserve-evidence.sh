@@ -9,15 +9,16 @@
 # personal scope.
 
 set -euo pipefail
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=_common.sh
+. "$SCRIPT_DIR/_common.sh"
 
-: "${VERCEL_TOKEN:?Set VERCEL_TOKEN first (see https://vercel.com/account/tokens)}"
-command -v jq >/dev/null || { echo "jq required: brew install jq"; exit 1; }
-command -v curl >/dev/null || { echo "curl required"; exit 1; }
+require_tools jq curl
+discover_vercel_token
 
 API="https://api.vercel.com"
 AUTH=(-H "Authorization: Bearer $VERCEL_TOKEN")
-OUT="$HOME/incident-$(date +%Y%m%d)"
-mkdir -p "$OUT"
+OUT=$(incident_dir)
 chmod 700 "$OUT"
 
 echo "[evidence] writing to $OUT" >&2

@@ -50,18 +50,27 @@ discover_vercel_token() {
       return 0
     fi
   fi
-  if [ -f "$HOME/.vercel/auth.json" ]; then
-    if command -v jq >/dev/null 2>&1; then
+  # Vercel CLI auth locations vary by platform:
+  #   macOS:   ~/Library/Application Support/com.vercel.cli/auth.json
+  #   Linux:   ~/.config/com.vercel.cli/auth.json  (or ~/.local/share/com.vercel.cli/auth.json)
+  #   legacy:  ~/.vercel/auth.json
+  for candidate in \
+    "$HOME/Library/Application Support/com.vercel.cli/auth.json" \
+    "$HOME/.config/com.vercel.cli/auth.json" \
+    "$HOME/.local/share/com.vercel.cli/auth.json" \
+    "$HOME/.vercel/auth.json"
+  do
+    if [ -f "$candidate" ] && command -v jq >/dev/null 2>&1; then
       local t
-      t=$(jq -r '.token // empty' "$HOME/.vercel/auth.json" 2>/dev/null || true)
+      t=$(jq -r '.token // empty' "$candidate" 2>/dev/null || true)
       if [ -n "$t" ]; then
         VERCEL_TOKEN="$t"
         export VERCEL_TOKEN
-        echo "[token] loaded VERCEL_TOKEN from ~/.vercel/auth.json" >&2
+        echo "[token] loaded VERCEL_TOKEN from $candidate" >&2
         return 0
       fi
     fi
-  fi
+  done
   cat >&2 <<EOF
 error: VERCEL_TOKEN not set.
 

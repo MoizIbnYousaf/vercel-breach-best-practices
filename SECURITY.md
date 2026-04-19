@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you find a security issue in this skill — the bash scripts, the markdown guidance, or the workflow itself — please report it privately before opening a public issue or PR.
+If you find a security issue in this skill — the bash scripts, the markdown guidance, or the workflow itself — please open up an issue or pr
 
 **Preferred**: open a [private security advisory](https://github.com/MoizIbnYousaf/vercel-breach-best-practices/security/advisories/new) on GitHub. This keeps the report visible only to the maintainer until a fix is ready.
 

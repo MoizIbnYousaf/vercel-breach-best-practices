@@ -2,7 +2,7 @@
 
 A Claude Code skill that runs the Vercel incident-response playbook for you. Point it at a Vercel account, it enumerates every project and env var, reads the audit log for anomalies, rotates upstream credentials in blast-radius order, empties the Vercel env vars, and hands you a final checklist of what's done vs. what needs your hands.
 
-Built the day the [April 2026 Vercel security bulletin](https://vercel.com/knowledge/vercel-april-2026-security-incident) landed. Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, or just general post-incident hardening.
+Built and based out of [April 2026 Vercel security bulletin](https://vercel.com/knowledge/vercel-april-2026-security-incident) landed. Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, or just general post-incident hardening.
 
 Vercel's own bulletin said: review your activity log, rotate environment variables, use the sensitive-environment-variables feature. This skill does all three for you, and then keeps going across every upstream service your Vercel projects ever touched.
 

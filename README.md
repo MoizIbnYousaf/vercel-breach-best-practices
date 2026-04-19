@@ -4,7 +4,7 @@
 
 Built in response to the [April 2026 Vercel security bulletin](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident). Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, post-incident hardening.
 
-**TL;DR** — install, say "vercel got breached", answer four scoping questions, get a complete rotation checklist with dashboard links in under two minutes. No credentials leave your machine; no autonomous rotation; every network call funneled through a hardcoded two-host allowlist.
+**TL;DR** — install, say "vercel got breached", answer four scoping questions, get a complete rotation checklist with dashboard links by the end of the session. No credentials leave your machine; no autonomous upstream rotation; every network call funneled through a hardcoded two-host allowlist.
 
 ---
 
@@ -191,7 +191,7 @@ PRs welcome. Three high-value additions:
 
 Keep `SKILL.md` under 500 lines. **Never add a script that rotates upstream credentials** — that's the one architectural rule.
 
-Security disclosures: see [`SECURITY.md`](SECURITY.md) (if present) or open a private advisory on GitHub.
+Security disclosures: see [`SECURITY.md`](SECURITY.md).
 
 ---
 
@@ -202,7 +202,7 @@ MIT. See [LICENSE](LICENSE).
 ## Credits
 
 - [April 2026 Vercel security bulletin](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident).
-- Vercel's [Activity Log docs](https://vercel.com/docs/observability/activity-log) and [`vercel activity` CLI](https://vercel.com/docs/cli/activity) — the high-signal event names came straight from there.
+- Vercel's [Activity Log docs](https://vercel.com/docs/observability/activity-log) and [`vercel activity` CLI](https://vercel.com/docs/cli) — the high-signal event names came straight from there.
 - [Upstash's post-incident rotation guide](https://upstash.com/blog/rotate-upstash-secrets-after-vercel-incident).
 - Vercel's [`vercel-cli-with-tokens`](https://vercel.com/docs/claude-code) skill for the token-discovery pattern.
 - Anthropic's [Claude Code skill-creator](https://docs.claude.com/claude-code/skills).

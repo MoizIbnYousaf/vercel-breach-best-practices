@@ -4,7 +4,7 @@ Vercel logs every state change on a team to the Activity Log. During incident re
 
 Two ways to read it:
 
-1. **`vercel activity` CLI** (added March 2026) — filter by event type, date range, project. Best for ad-hoc triage. Docs: https://vercel.com/docs/cli/activity
+1. **`vercel activity` CLI** (added March 2026) — filter by event type, date range, project. Best for ad-hoc triage. Run `vercel activity --help` or see https://vercel.com/docs/cli for the current flags.
 2. **`~/incident-$(date +%Y%m%d)/audit-log-<team>.json`** — preserved by `scripts/preserve-evidence.sh`. Best for bulk jq queries and keeping an immutable copy.
 
 Prefer the CLI when exploring interactively; use the JSON when grepping across many events at once.

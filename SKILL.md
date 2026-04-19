@@ -96,7 +96,7 @@ Also tell the user: *before rotating any upstream key*, screenshot the "API keys
 
 Two ways to read Vercel's Activity Log during triage:
 
-1. **`vercel activity` CLI** (added March 2026) — best for targeted queries like "show me every env-variable-read in the last 7 days." Docs: https://vercel.com/docs/cli/activity. Example:
+1. **`vercel activity` CLI** (added March 2026) — best for targeted queries like "show me every env-variable-read in the last 7 days." See https://vercel.com/docs/cli and `vercel activity --help`. Example:
    ```bash
    vercel activity --type env-variable-read --since 7d
    vercel activity --type deploy-hook-created --since 30d

@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.3.1 — 2026-04-19 — Final polish pass
+
+Documentation cleanup after a final critic-mode review.
+
+- **Fixed `references/checklist-template.md`** — the `[DONE]` section still
+  claimed the skill "rotated Supabase / Neon automatically" (v1 language from
+  before the deleted `rotate-supabase.sh`). Rewrote to match v2 reality:
+  evidence + inventory + triage are what's automated; upstream rotation is
+  all `[MANUAL]`. Also replaced the stale `env.listed` event name with the
+  real `env-variable-read:cli:env:pull`.
+- **README TL;DR** — removed the "under two minutes" overclaim. The session
+  takes as long as it takes; we don't control user typing speed.
+- **Added `SECURITY.md`** — private disclosure path, scope statement, what
+  counts vs. what doesn't, expected response times.
+- **Vercel CLI doc links generalized** — changed specific sub-paths
+  (`/docs/cli/activity`) that may not exist to general `/docs/cli` + advice
+  to run `vercel activity --help`. Avoids dead links if Vercel moves pages.
+
+Tag: v2.3.1.
+
 ## v2.3 — 2026-04-19 — Vercel Activity Log integration
 
 Vercel shipped `vercel activity` in the CLI on March 23, 2026 and published

@@ -1,0 +1,89 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - navigation [ref=e8]:
+        - generic [ref=e11]:
+          - button [ref=e12] [cursor=pointer]:
+            - img [ref=e13]
+          - button [ref=e16] [cursor=pointer]:
+            - img [ref=e19]
+          - button "Menu dropdown button" [ref=e21] [cursor=pointer]:
+            - img [ref=e23]
+      - banner [ref=e24]:
+        - link [ref=e26] [cursor=pointer]:
+          - /url: /dashboard/org/kexiqusjpkygdzpuvcbx
+          - img [ref=e27]
+        - generic [ref=e29]:
+          - generic [ref=e31]:
+            - img [ref=e33]
+            - generic [ref=e35]: Account
+          - generic [ref=e36]:
+            - generic [ref=e38] [cursor=pointer]: Feedback
+            - generic [ref=e39]:
+              - button [ref=e40] [cursor=pointer]:
+                - img [ref=e42]
+              - button [ref=e46] [cursor=pointer]:
+                - img [ref=e48]
+    - generic [ref=e58]:
+      - generic [ref=e59]:
+        - generic [ref=e62]:
+          - heading "Access Tokens" [level=1] [ref=e63]
+          - generic [ref=e64]: Create and manage access tokens for API authentication.
+        - navigation [ref=e67]:
+          - menu [ref=e68]:
+            - listitem [ref=e69]:
+              - link "Classic Tokens" [ref=e70] [cursor=pointer]:
+                - /url: /dashboard/account/tokens
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - group [ref=e74]:
+            - textbox "Filter tokens" [ref=e75]
+            - group [ref=e76]:
+              - img [ref=e77]
+          - generic [ref=e80]:
+            - link "API Docs" [ref=e81] [cursor=pointer]:
+              - /url: https://supabase.com/docs/reference/api/introduction
+              - img [ref=e83]
+              - generic [ref=e87]: API Docs
+            - link "CLI docs" [ref=e88] [cursor=pointer]:
+              - /url: https://supabase.com/docs/reference/cli/start
+              - img [ref=e90]
+              - generic [ref=e94]: CLI docs
+            - generic [ref=e95]:
+              - button "Generate new token" [ref=e96] [cursor=pointer]:
+                - generic [ref=e97]: Generate new token
+              - button "Choose token scope" [ref=e98] [cursor=pointer]:
+                - img [ref=e100]
+        - table [ref=e106]:
+          - rowgroup [ref=e107]:
+            - row "Token Last used Expires" [ref=e108]:
+              - columnheader "Token" [ref=e109]
+              - columnheader "Last used" [ref=e110]:
+                - button "Last used" [ref=e111] [cursor=pointer]:
+                  - text: Last used
+                  - generic [ref=e112]:
+                    - img [ref=e113]
+                    - img [ref=e115]
+                    - img [ref=e117]
+              - columnheader "Expires" [ref=e120]:
+                - button "Expires" [ref=e121] [cursor=pointer]:
+                  - text: Expires
+                  - generic [ref=e122]:
+                    - img [ref=e123]
+                    - img [ref=e125]
+                    - img [ref=e127]
+              - columnheader [ref=e130]
+          - rowgroup [ref=e131]:
+            - row [ref=e132]:
+              - cell [ref=e133]
+              - cell [ref=e135]
+              - cell [ref=e137]
+              - cell [ref=e139]
+              - cell [ref=e140]
+            - row [ref=e142]:
+              - cell [ref=e143]
+              - cell [ref=e145]
+              - cell [ref=e147]
+              - cell [ref=e149]
+              - cell [ref=e150]
+  - alert [ref=e152]

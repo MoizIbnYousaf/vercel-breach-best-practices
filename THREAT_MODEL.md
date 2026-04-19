@@ -24,7 +24,7 @@ The host allowlist, audit log, and consent gates are real controls, but they hav
 - **Claude (the model) can bypass `safe_curl`.** The allowlist binds the bash scripts in this repo. Claude also has its own Bash tool and could in principle run `curl https://evil.com` directly without going through `safe_curl`. The mitigation is **human observability**: every Bash tool call appears in the transcript and the SKILL.md instructs Claude to only use the bundled scripts. That's a soft control, not hard enforcement. If you notice Claude running a `curl` that isn't in one of the bundled scripts, stop and review.
 - **The audit log is honor-system.** `audit.log` is written *by* the skill being audited. A malicious fork could log nothing, or log fake entries. The real defense is reading the source code before you trust it — `audit.log` is for your own recordkeeping, not third-party verification.
 - **"Never read `secrets.txt` in chat" is a soft prompt.** SKILL.md tells Claude not to read that file aloud. There is no technical barrier; an adversarial prompt could cause it to be read. The only enforcement is: Claude's behavior is observable in the transcript, and you can `chmod 000` the file if you're paranoid.
-- **No code signing / no reproducible builds.** v2.3.2 adds a `SHA256SUMS.txt` to releases so you can verify you got the same bytes a reviewer audited. But tags and commits are not GPG-signed. A compromised maintainer account could publish a malicious tag. Pin to a reviewed commit SHA if that concerns you.
+- **No code signing.** Tags and commits are not GPG-signed. A compromised maintainer account could publish a malicious tag. Pin to a reviewed commit SHA if that concerns you.
 
 ## Skill-as-supply-chain
 

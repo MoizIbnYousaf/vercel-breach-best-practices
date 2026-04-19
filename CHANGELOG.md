@@ -13,9 +13,6 @@ complaints a security researcher could still raise, without over-engineering.
   `api.supabase.io`, localhost redirect, empty URL). Passes offline because
   `safe_curl` refuses before making the call. Reviewers can now verify the
   allowlist actually works instead of taking the docs' word for it.
-- **`SHA256SUMS.txt`** — hash of every tracked file. Lets anyone verify they
-  got the same bytes a reviewer audited: `shasum -a 256 -c SHA256SUMS.txt`.
-  Supply-chain integrity without requiring GPG.
 - **`THREAT_MODEL.md` "Known limitations" section** — explicit about four
   honest gaps: (1) Claude's Bash tool can bypass `safe_curl` — mitigated by
   human observability, not enforcement; (2) `audit.log` is honor-system, not

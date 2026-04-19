@@ -52,7 +52,8 @@ audit_log() {
   host=$(echo "$url" | sed -E 's|^https?://([^/]+).*|\1|')
   path=$(echo "$url" | sed -E 's|^https?://[^/]+||' | sed 's|?.*||')
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  script=$(basename "${BASH_SOURCE[2]:-unknown}")
+  # Call stack: audit_log[0] ← safe_curl[1] ← vcurl/sbcurl[2] ← user script[3]
+  script=$(basename "${BASH_SOURCE[3]:-${BASH_SOURCE[2]:-unknown}}")
   local log
   log="$(incident_dir)/audit.log"
   echo "$ts | $method | $host | $path | $script" >> "$log"

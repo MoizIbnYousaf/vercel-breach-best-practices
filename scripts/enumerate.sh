@@ -14,7 +14,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=_common.sh
 . "$SCRIPT_DIR/_common.sh"
 
-require_tools jq curl openssl
+require_tools jq curl
 discover_vercel_token
 
 API="https://api.vercel.com"
@@ -60,8 +60,11 @@ classify() {
     NOTION_TOKEN|LINEAR_API_KEY|FIGMA_TOKEN) echo tool-api;;
     CRON_SECRET|VERCEL_CRON_SECRET) echo cron-secret;;
     VERCEL_*) echo vercel-system;;
-    *_API_KEY|*_SECRET|*_TOKEN|*_PASSWORD) echo generic-secret;;
+    # NEXT_PUBLIC_* must be checked BEFORE the generic *_API_KEY / *_TOKEN
+    # catch-all, otherwise e.g. NEXT_PUBLIC_STRIPE_API_KEY is misclassified as
+    # a secret when it's client-exposed public config.
     NEXT_PUBLIC_*) echo public-config;;
+    *_API_KEY|*_SECRET|*_TOKEN|*_PASSWORD) echo generic-secret;;
     *) echo unknown;;
   esac
 }

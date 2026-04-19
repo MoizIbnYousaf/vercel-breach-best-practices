@@ -1,54 +1,46 @@
 # vercel-breach-best-practices
 
-A Claude Code skill that runs the Vercel incident-response playbook for you. Point it at a Vercel account, it enumerates every project and env var, reads the audit log for anomalies, rotates upstream credentials in blast-radius order, empties the Vercel env vars, and hands you a final checklist of what's done vs. what needs your hands.
+A Claude Code skill for Vercel incident response. Not an autonomous rotator — an advisor. You rotate credentials yourself in your own dashboards; the skill preserves evidence, enumerates your Vercel surface, reads the audit log for anomalies, and hands you a ranked `[DONE]/[MANUAL]/[BLOCKED]` checklist with direct links.
 
-Built and based out of [April 2026 Vercel security bulletin](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident) landed. Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, or just general post-incident hardening.
+Built in response to the [April 2026 Vercel security bulletin](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident). Works for any Vercel compromise: platform breach, leaked `VERCEL_TOKEN`, compromised integration, suspected env-var exposure, post-incident hardening.
 
-Vercel's own bulletin said: review your activity log, rotate environment variables, use the sensitive-environment-variables feature. This skill does all three for you, and then keeps going across every upstream service your Vercel projects ever touched.
+## Why it's not autonomous
 
----
+Earlier versions shipped autonomous rotation scripts. We deleted them.
 
-## The one-line pitch
+During a breach is the worst time to trust an unaudited script with a production credential. Dashboard clicks are visible, reversible, easy to reason about. API automation is fast but opaque, and "fast" isn't worth much when you're debugging why prod just broke because a skill rotated something in the wrong order.
 
-Your Vercel account might be compromised. You probably have 40+ env vars across 6 projects touching AWS, Stripe, Supabase, OpenAI, and a dozen others. Rotating all of them by hand is an afternoon of clicking through dashboards in the correct order, remembering what blast radius looks like, and keeping a clean log. This skill does the mechanical 80% and gives you a ranked checklist for the rest.
+The trade: a few more clicks for you. The win: the skill is trivial to audit (7 scripts, ~600 lines), has a two-host network allowlist hardcoded, and literally cannot mutate upstream state even if it wanted to.
 
 ## What it does, in order
 
-**1. Scopes the incident.** One set of questions: which team, confirmed or precautionary, which CLIs are authed locally. No more.
+1. **Scopes the incident.** Which team, confirmed or precautionary, which CLIs you already have authed.
+2. **Preserves evidence.** Dumps Vercel audit logs, deploys, tokens, members, integrations to `~/incident-YYYYMMDD/` before anything rotates. Some providers stop surfacing old-key activity the moment you rotate — this is your only shot at the trail.
+3. **AI-triages the audit log.** Claude reads the 200 most-recent events and surfaces anomalies a human would skim past: token creation off-hours, env-var listing bursts across projects, unfamiliar IPs, new integrations, deploy-hook creation.
+4. **Inventories your Vercel surface.** Every project, every env-var name, classified by upstream service. Names only, never values.
+5. **Optional exposure interview.** Covers the three things the Vercel API cannot see: historical env vars (deleted during the window), out-of-band copies (Slack, git, screenshots), Vercel-adjacent exposures (deploy hooks, Git OAuth, past team members). Opt-in, never blocks containment.
+6. **Guides upstream rotation.** For each service: blast radius, rotation cost, urgency, ready state. Dashboard link, click path, local file to save the new value. You do the clicking.
+7. **Empties Vercel env var values.** The one destructive op the skill can perform, behind two-step consent and a dry-run default. Keys preserved so the schema stays intact.
+8. **Disconnects compromised integrations.** Dashboard-only.
+9. **Guides Vercel account hardening.** Fresh tokens (new one first, then revoke old — never the other way around), 2FA, deploy hooks, GitHub/GitLab OAuth.
+10. **Scans build logs.** Greps last 20 deploys for `console.log(process.env)` accidents before redeploying.
+11. **Redeploys with Sensitive flag.** Enables team-wide policy first, then sets fresh values.
+12. **Delivers the checklist.** `[DONE]/[MANUAL]/[BLOCKED]` with direct links.
+13. **Offers to wipe local secrets.** Opt-in, no default. You choose.
 
-**2. Preserves evidence.** Dumps Vercel audit logs, deployment history, team roster, and active tokens to `~/incident-YYYY-MM-DD/` before anything rotates. The attacker's trail is irreplaceable. Keys rotate once; the logs that show what the keys were used for only exist now.
+## Safety rails
 
-**3. AI-triages the audit log.** Claude reads the 200 most-recent events, groups by source IP, clusters by event type, and surfaces anomalies: tokens created off-hours, env-var listing bursts across many projects, new integrations, deploy-hook creation. Faster than clicking through the dashboard, and doesn't miss the quiet events humans skim past.
+- **Host allowlist.** Every network call goes through `safe_curl` in `scripts/_common.sh`. Anything not `api.vercel.com` or `api.supabase.com` gets rejected. One line to audit: `grep -A3 ALLOWED_HOSTS scripts/_common.sh`.
+- **Audit log.** Every API call appends to `~/incident-YYYYMMDD/audit.log` with timestamp, method, host, path. No bodies, no tokens. Tail it during a run.
+- **Dry-run default.** Destructive scripts print the plan and exit unless you pass `--execute`.
+- **No upstream rotation.** The skill never calls Supabase / Clerk / Stripe / etc. rotation APIs. Not now, not ever.
+- **Tokens via env var only.** Never CLI flags (which leak to shell history).
+- **No post-install hooks.** Plain bash + markdown. No `eval`, no dynamic shell, no telemetry.
+- **Two-step consent for Vercel mutations.** `AskUserQuestion` with scope + effect, then `--execute`.
 
-**4. Inventories the surface.** `enumerate.sh` walks every team, every project, every env var. Names only, never values. Classifies each var by upstream service using 38 name patterns so rotation can be prioritized by blast radius.
-
-**5. Rotates upstream.** Highest blast radius first: AWS, Cloudflare, GCP, then databases (Supabase, Neon, PlanetScale, Turso, Upstash), then auth (Clerk, Auth0, local JWT secrets), then Stripe, then email (Resend, SendGrid, Postmark, Twilio), then AI providers (OpenAI, Anthropic, etc.), then observability, then Git hosts, then webhooks. Supabase rotation is fully automated via API (JWT signing keys + DB password). Local auth secrets get generated to a chmod-600 file in the incident folder. Everything dashboard-only becomes a link in the final checklist.
-
-**6. Empties Vercel env vars.** Keys are preserved, values are set to "". Leaked values in Vercel's storage are now neutralized; new deploys fail loudly until fresh values arrive in step 9. `VERCEL_*` system vars and integration-managed vars are skipped correctly.
-
-**7. Disconnects integrations.** Supabase, Sentry, Neon, Upstash, Vercel KV. Re-inject credentials automatically on connection, so they get disconnected here and reconnected in step 9 once upstream is clean.
-
-**8. Hardens the Vercel account itself.** Rotates your Vercel access tokens, enables 2FA, regenerates deploy hooks, re-auths the GitHub OAuth app. This is the step that assumes Vercel's internal state is compromised.
-
-**9. Scans build logs.** `console.log(process.env)` prints persist in Vercel's log storage. Rotation of the env vars doesn't remove them from the logs. `scan-build-logs.sh` pulls the last 20 deploys per project and greps for 15 secret patterns (Stripe keys, AWS access keys, GitHub PATs, JWT tokens, Postgres connection strings).
-
-**10. Redeploys with sensitive env vars.** New values go in with the Sensitive toggle on, which stores them in a format Vercel can't read back through dashboard or API. The team-wide `Enforce Sensitive Environment Variables` policy gets enabled so future env vars default to sensitive without thinking about it.
-
-**11. Delivers the checklist.** One markdown file split into `[DONE]` / `[MANUAL]` / `[BLOCKED]`. Ordered by what you should do first, with direct dashboard links for every manual step.
-
----
+Full threat model + 30-second verification recipe: [`THREAT_MODEL.md`](THREAT_MODEL.md).
 
 ## Install
-
-One command via [skills.sh](https://skills.sh) (the Vercel Labs skills registry):
-
-```bash
-npx skills add MoizIbnYousaf/vercel-breach-best-practices
-```
-
-Works for Claude Code, Codex, Cursor, OpenCode, and 40+ other agents. Pass `-g` to install globally, `-a claude-code` to target a specific agent.
-
-Or clone directly if you prefer:
 
 ```bash
 git clone https://github.com/MoizIbnYousaf/vercel-breach-best-practices.git \
@@ -57,121 +49,87 @@ git clone https://github.com/MoizIbnYousaf/vercel-breach-best-practices.git \
 chmod +x ~/.claude/skills/vercel-breach-best-practices/scripts/*.sh
 ```
 
-Claude Code picks up the skill on next launch.
+Claude Code picks it up on next launch.
 
 ## Run
 
-Get authed into Vercel (pick one):
+Get authed into Vercel (either works):
 
 ```bash
-vercel login                             # interactive
+vercel login
 # or
-export VERCEL_TOKEN=vca_...              # generate at vercel.com/account/tokens
+export VERCEL_TOKEN=vca_...              # team-scoped, from vercel.com/account/tokens
 ```
 
-Then in any project directory, open Claude Code and invoke:
-
-```
-/vercel-breach-best-practices
-```
-
-Or just say "vercel got breached, help me rotate everything." The skill triggers on incident language without needing the slash.
+Then open Claude Code and say what's going on: *"vercel got breached, help me rotate everything"* triggers the skill. No slash command required.
 
 ## Requirements
 
-Hard: `curl`, `jq`, `openssl`, and a `VERCEL_TOKEN`. The first three are preinstalled on macOS.
+Hard: `curl`, `jq`, `openssl`, and a `VERCEL_TOKEN`. First three are preinstalled on macOS.
 
-Opportunistic: `SUPABASE_ACCESS_TOKEN` for the automated Supabase rotation, and whichever service CLIs you already have installed (`aws`, `gh`, `neon`, `turso`, `pscale`). The skill uses what it finds and flags what it can't automate in the `[MANUAL]` section.
+Everything else (`aws`, `gh`, `stripe`, whatever) is opportunistic. The skill uses what it finds, flags what it can't as `[MANUAL]` in the checklist.
 
----
-
-## Repository layout
+## Layout
 
 ```
 vercel-breach-best-practices/
 ├── SKILL.md                              # the skill Claude reads
+├── THREAT_MODEL.md                       # defends-against + verify recipe
+├── CHANGELOG.md
 ├── README.md
 ├── LICENSE
 ├── scripts/
-│   ├── _common.sh                        # shared: token discovery, auth'd curl
-│   ├── preserve-evidence.sh              # audit log + deploys + roster + tokens
-│   ├── enumerate.sh                      # every env var, classified, paginated
-│   ├── empty-env-vars.sh                 # values to "", keys preserved
-│   ├── generate-secrets.sh               # AUTH_SECRET / JWT_SECRET locally
-│   ├── rotate-supabase.sh                # full Supabase rotation via API
-│   └── scan-build-logs.sh                # grep deploys for leaked secrets
+│   ├── _common.sh                        # host allowlist + safe_curl + audit log
+│   ├── preserve-evidence.sh              # read-only: audit log, deploys, tokens
+│   ├── enumerate.sh                      # read-only: env vars, classified
+│   ├── empty-env-vars.sh                 # values → "", two-step consent
+│   ├── generate-secrets.sh               # local AUTH_SECRET / JWT_SECRET
+│   └── scan-build-logs.sh                # read-only: grep deploys for leaks
 └── references/
-    ├── rotation-playbooks.md             # per-service tier 1–9 recipes
+    ├── rotation-playbooks.md             # per-service dashboard recipes
+    ├── exposure-interview.md             # Vercel-scoped supplement to inventory
     ├── classifier.md                     # env-var-name → service patterns
     ├── audit-triage.md                   # what to flag in a Vercel audit log
     └── checklist-template.md             # final deliverable format
 ```
 
-`SKILL.md` and the `references/` files are the knowledge layer Claude reads. The `scripts/` are what Claude (or you) runs. Total: 14 files, 1,559 lines.
+## Why the ordering matters
 
----
+The ordering *is* the defense. Reversing any step makes the response meaningfully worse.
 
-## Ordering rules, and why they matter
+**Preserve evidence before anything mutates.** Rotate first and you lose the trail. Non-negotiable.
 
-The skill runs in a specific order because the ordering is the defense. Reversing any step makes the response meaningfully worse.
+**Rotate upstream before emptying Vercel env vars.** Emptying Vercel doesn't invalidate leaked keys — the upstream service still accepts the old one. Upstream rotation is what kills the leak. Emptying Vercel is hygiene that happens after.
 
-**Rotate upstream before emptying Vercel env vars.** Emptying the values in Vercel does not invalidate leaked secrets. The upstream service still accepts the old key. Upstream rotation is what kills the leak. Emptying Vercel is hygiene.
+**Highest blast radius first.** AWS and Stripe before analytics. Cloud takeover beats "attacker changed my alert thresholds."
 
-**Preserve evidence before rotating anything.** Some providers stop surfacing the old key's activity as soon as the new key is generated. If you rotate first, you lose the trail.
+**Create the new Vercel token before revoking old ones.** Deleting all tokens mid-flight can break the in-flight response itself.
 
-**Highest blast radius first.** AWS and Stripe before analytics and Sentry. Cloud-account takeover and direct money exfiltration beat "attacker changed my alert thresholds."
+## Questions
 
----
+**Does it rotate my Supabase / Clerk / Stripe keys?** No. v1 did; we deleted that in v2. You rotate in the upstream dashboard; the skill gives you the link and a place to save the new value.
 
-## What's automated vs. what's dashboard clicks
+**Safe on production?** Yes. The only destructive operation is emptying Vercel env var values (keys preserved, no schema loss), behind two-step consent and a dry-run default. Everything else is read-only.
 
-Automated: enumeration, classification, audit-log triage, Supabase rotation (JWT + DB password), local auth-secret generation, Vercel env-var emptying, evidence preservation, build-log secret scanning.
+**Does it leak secrets into chat?** No. New secrets go to `~/incident-YYYYMMDD/secrets.txt` with `chmod 600`. Chat sees destinations, never values.
 
-Dashboard with direct links: Stripe, Clerk, Auth0, OpenAI, Anthropic, SendGrid, Twilio, GitHub OAuth, most webhook URLs, the sensitive-env-var toggle.
+**Personal Vercel account, no teams?** Handled. `enumerate.sh` falls through to personal scope.
 
-The split is deliberate. Services that expose rotation endpoints get rotated; services that require dashboard clicks get ordered links in the checklist so the clicking is fast.
+**Token 403s on some teams?** Noted in the checklist as `[BLOCKED] team <slug>: token lacks access`. The others continue.
 
----
+**Want to stop halfway?** Fine. Partial checklist with `[INCOMPLETE]`.
 
-## Works with Vercel's official Claude skill
-
-Vercel publishes [`vercel-cli-with-tokens`](https://vercel.com/docs/claude-code) for deploy operations through the CLI. The two skills interlock: this one handles the rotation loop, Vercel's handles the redeploy (step 10) where new env vars get set and fresh deploys get triggered.
-
-Both skills agree on the same security rule: never pass `VERCEL_TOKEN` as a `--token` flag, because it leaks to shell history and process listings. Export it as an environment variable and let the CLI read it.
-
----
-
-## Common questions
-
-**Is this safe on production?** Yes. The destructive actions are emptying env vars (keys preserved, no schema loss) and upstream credential rotation (the point of the exercise). Every batched action confirms scope and count before executing.
-
-**Does it leak secrets into chat?** No. New secrets go to `~/incident-YYYY-MM-DD/secrets.txt` with chmod 600. Chat sees destinations, never values.
-
-**What about personal Vercel accounts with no teams?** Handled. `enumerate.sh` falls through to personal scope when teams come back empty.
-
-**Token has access to 3 of 5 teams, 403s on 2?** Noted in the checklist as `[BLOCKED] team <slug>: token lacks access`. Remaining teams rotate normally.
-
-**User wants to stop halfway?** Fine. The skill hands back a partial checklist with an `[INCOMPLETE]` section listing what wasn't touched. Half a rotation is still better than none.
-
-**Precautionary, not confirmed breach?** Say so. The skill relaxes urgency on session-invalidating rotations (auth secrets) and integration disconnects, keeps the structural hardening.
-
-**Why not one giant script?** Incident response is conversational, not batch. You need to pause, redirect, skip a tier, ask questions mid-flight. Claude orchestrates; scripts handle the deterministic parts.
-
----
+**Why not one giant script?** Incident response is conversational, not batch. You need to pause, skip, redirect, ask questions mid-flight. Claude orchestrates the conversation; scripts handle the deterministic observations.
 
 ## Contributing
 
-Pull requests welcome. Three high-value additions:
+PRs welcome. Three high-value additions:
 
-New service rotation playbooks in `references/rotation-playbooks.md`, bonus if scripted into `scripts/`. The Supabase script is the reference implementation.
+- **More service playbooks** in `references/rotation-playbooks.md`. Dashboard path, URL, grace-period notes.
+- **Classifier patterns** for env-var names the current regex misses. Add to `scripts/enumerate.sh`'s `classify()` and to `references/classifier.md`. Keep `NEXT_PUBLIC_*` before the `*_API_KEY` catch-all.
+- **Audit-log heuristics** in `references/audit-triage.md`. More patterns the AI can flag = less JSON-squinting for the user.
 
-Classifier patterns for env-var names the current regex misses. Add to `scripts/enumerate.sh`'s `classify()` and to `references/classifier.md` so the two stay in sync.
-
-Audit-log heuristics in `references/audit-triage.md`. The more patterns the AI can flag, the less the user has to squint at JSON.
-
-Keep `SKILL.md` under 500 lines. Push detail into `references/` with clear pointers.
-
----
+Keep `SKILL.md` under 500 lines. Never add a script that rotates upstream — that's the one architectural rule.
 
 ## License
 
@@ -179,6 +137,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-The [April 2026 Vercel security bulletin](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident) for the initial prompt. Vercel's [`vercel-cli-with-tokens`](https://vercel.com/docs/claude-code) skill for the token-discovery pattern. Anthropic's [Claude Code skill-creator](https://docs.claude.com/claude-code/skills) for the SKILL.md structure.
-
-Built with Claude Code in an afternoon. Shipped the same day Vercel shipped the bulletin.
+- The [April 2026 Vercel security bulletin](https://vercel.com/kb/bulletin/vercel-april-2026-security-incident).
+- [Upstash's post-incident rotation guide](https://upstash.com/blog/rotate-upstash-secrets-after-vercel-incident), linked in the Upstash playbook.
+- Vercel's [`vercel-cli-with-tokens`](https://vercel.com/docs/claude-code) skill for the token-discovery pattern.
+- Anthropic's [Claude Code skill-creator](https://docs.claude.com/claude-code/skills) for the SKILL.md structure.

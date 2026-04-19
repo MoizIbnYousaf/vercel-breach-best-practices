@@ -61,7 +61,7 @@ All scripts live in `scripts/`. They are **observation tools**, not action dicta
 - `enumerate.sh` — **read-only**. Lists every project + env-var *name* across every team, classified by upstream service. Values are never read or transmitted.
 - `scan-build-logs.sh` — **read-only**. Scans last N deploys for leaked-secret patterns (`console.log(process.env)` accidents).
 - `empty-env-vars.sh` — **destructive, two-step consent, dry-run default**. PATCHes env var values to `""`. Keeps keys so the schema is intact. Never rotates upstream. Requires `--execute` AND an explicit `AskUserQuestion` YES.
-- `generate-secrets.sh` — **local-only**. `openssl rand` for local auth secrets. No network.
+- `generate-secrets.sh` — **local-only**. `openssl rand` for local auth secrets (`AUTH_SECRET`, `JWT_SECRET`, etc.). Writes to `~/incident-YYYYMMDD/secrets.txt` with `chmod 600`. **Never read this file in chat** — tell the user the filename and let them `cat` it themselves to copy values into the Vercel dashboard. No network.
 
 No script in this skill rotates an upstream credential. That's deliberate.
 
@@ -188,8 +188,9 @@ Dashboard-only: https://vercel.com/<team>/~/integrations. Remove each. Reconnect
 
 ### Step 8 — Rotate the Vercel account itself (user does this)
 
-All dashboard actions:
-- https://vercel.com/account/tokens — delete all, create fresh team-scoped
+All dashboard actions. Order matters — don't self-destruct the session the user is working in.
+
+- https://vercel.com/account/tokens — **create a fresh team-scoped token FIRST, update any local CLI auth to use it, THEN revoke old tokens.** Deleting all tokens before you have a working replacement can break the in-flight response.
 - https://vercel.com/account/security — verify 2FA enabled
 - Review team members, remove anyone suspicious
 - Per-project: Settings → Git → regenerate deploy hooks
@@ -215,9 +216,9 @@ Assemble `[DONE] / [MANUAL] / [BLOCKED]` using `references/checklist-template.md
 
 ### Step 11 — Offer to wipe local traces
 
-Once the user confirms new values are in a password manager, `AskUserQuestion`: "Incident response complete — wipe `~/incident-YYYYMMDD/secrets.txt` and `audit.log` now that values are in your password manager?"
+Once the user confirms new values are somewhere durable (password manager, set in Vercel), `AskUserQuestion`: "Wipe `~/incident-YYYYMMDD/secrets.txt` and `audit.log`?"
 
-Default "yes." Leaving local copies of new credentials around is an unnecessary risk.
+**Default is ASK — no automatic wipe.** The user should consciously choose, because wiping `secrets.txt` destroys the only local copy of the new credentials. If they haven't gotten those values into a password manager yet, wiping would be catastrophic. Present three options: wipe both, wipe `audit.log` only (keep `secrets.txt` until they migrate it), or keep everything for post-mortem.
 
 ---
 

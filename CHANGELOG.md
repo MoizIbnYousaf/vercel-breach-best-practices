@@ -1,5 +1,54 @@
 # Changelog
 
+## v2.2 — 2026-04-19 — Critic-pass corrections
+
+Self-audit in critic mode surfaced 8 issues. All fixed in this commit.
+
+### Critical
+
+- **README rewritten.** The v1 README still described the autonomous Supabase
+  rotation that was removed in v2: listed the deleted `rotate-supabase.sh` in
+  the repo tree, claimed "Supabase rotation is fully automated via API",
+  labeled it "the reference implementation", and showed a stale file count.
+  The GitHub page was contradicting `SKILL.md`. Rewrote from scratch to match
+  v2.1 reality: advisor framing, removed rotator acknowledged, safety rails
+  summarized, contributor guidance amended to forbid adding upstream-rotation
+  scripts.
+
+### Bugs
+
+- **Classifier order fix** — `scripts/enumerate.sh` matched `*_API_KEY` before
+  `NEXT_PUBLIC_*`, so `NEXT_PUBLIC_STRIPE_API_KEY` was misclassified as a
+  secret when it's client-exposed public config. Moved `NEXT_PUBLIC_*` ahead
+  of the catch-all with a comment explaining why.
+- **Audit-log script name** — `audit_log()` in `_common.sh` used
+  `BASH_SOURCE[2]`, which lands on `_common.sh` for every call (the actual
+  user script is at depth 3). Fixed to prefer `[3]`, fall back to `[2]`.
+- **Unnecessary dep** — `enumerate.sh` required `openssl` but never used it.
+  Removed.
+
+### Safer defaults
+
+- **Step 8 "delete all tokens" softened** — the v2.1 wording could break the
+  user's in-flight Vercel session if they deleted all tokens including the one
+  the CLI was using. Changed to: "create the fresh team-scoped one FIRST,
+  update local CLI auth, THEN revoke old tokens."
+- **Step 11 no longer defaults to wipe** — the "Default yes" wording risked
+  destroying the only local copy of new credentials if the user hadn't
+  migrated them to a password manager yet. Changed to explicit three-option
+  `AskUserQuestion` with no default: wipe both, wipe audit.log only, keep
+  everything.
+- **`generate-secrets.sh` handoff clarified** — SKILL.md now explicitly says:
+  never read `secrets.txt` in chat. Tell the user the filename and let them
+  `cat` it themselves. Prevents accidental secret exposure in the transcript.
+
+### Unchanged (re-verified)
+
+- Host allowlist is airtight; every network call funnels through `safe_curl`.
+- Dry-run default works; `--execute` is the only opt-in.
+- No upstream rotation anywhere in the codebase.
+- `THREAT_MODEL.md` verification recipe still runs green.
+
 ## v2.1 — 2026-04-19 — Advisor framing + exposure interview
 
 Tonal and structural refinement based on critic-mode review. No new scripts,

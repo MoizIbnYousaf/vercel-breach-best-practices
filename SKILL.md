@@ -45,16 +45,45 @@ This skill was built in the aftermath of the [April 2026 Vercel security inciden
 
 ## The workflow
 
-### Step 1 — Scope (one message, before anything destructive)
+### Step 1 — Scope (one AskUserQuestion call, before anything destructive)
 
-Ask the user, in one message:
+Call `AskUserQuestion` once with exactly these four questions. Do not ask them as free text — tappable options are faster during an incident and easier to re-parse.
 
-1. Which Vercel account(s) / team(s) are affected? (Personal scope and team scopes are separate.)
-2. Confirmed breach or precautionary rotation? (Changes urgency of integration disconnection and session invalidation.)
-3. Do you have `VERCEL_TOKEN` available? If not, it's at `~/.vercel/auth.json` or a new one at https://vercel.com/account/tokens.
-4. Which service CLIs/tokens are already authenticated locally? (`SUPABASE_ACCESS_TOKEN`, `aws`, `gh`, etc. — saves time later.)
+**Q1 — `Vercel CLI`** — *"Do you want to use the Vercel CLI to continue?"*
+- `Yes — CLI already logged in` — *"Use `vercel` CLI; scripts auto-read the token from the CLI's `auth.json`. (Recommended)"*
+- ``Yes — I'll run `vercel login` now`` — *"Pause while the user authenticates, then proceed."*
+- `No — use VERCEL_TOKEN env var` — *"User will export `VERCEL_TOKEN=vca_…` from a dashboard-generated token."*
+- `No — dashboard only` — *"User can't run scripts; we'll hand-walk dashboard steps."*
+
+**Q2 — `Scope`** — *"Which Vercel scope is affected?"*
+- `Personal account only`
+- `One team`
+- `Multiple teams`
+- `Everything (personal + all teams)`
+
+**Q3 — `Incident type`** — *"Confirmed breach or precautionary rotation?"*
+- `Confirmed breach — assume tokens leaked`
+- `Precautionary — no evidence, hardening`
+- `Unknown — triage audit log first`
+
+**Q4 — `Local CLIs`** (multiSelect) — *"Which upstream CLIs / tokens are already authenticated on this machine?"*
+- `AWS (aws configured)`
+- `Supabase (SUPABASE_ACCESS_TOKEN)`
+- `GitHub (gh auth)`
+- `None yet — set up as needed`
 
 Then sketch the plan (steps 2–10) and get go-ahead before anything destructive.
+
+#### Auth branches — what to do after Q1
+
+| Q1 answer | Immediate next action |
+|---|---|
+| **CLI logged in** | Run `vercel whoami` to verify. Scripts auto-discover the token via `_common.sh :: discover_vercel_token`. Proceed to Step 2. |
+| **Will run `vercel login`** | Tell the user to run it; wait; then `vercel whoami` to confirm; proceed. |
+| **`VERCEL_TOKEN` env** | Remind the user to export a **freshly scoped** token (not one possibly leaked). Verify with `curl -s -H "Authorization: Bearer $VERCEL_TOKEN" https://api.vercel.com/v2/user`. |
+| **Dashboard only** | Skip `scripts/enumerate.sh` and `scripts/preserve-evidence.sh`. Hand-walk Steps 5–9 via dashboard links. Mark the whole run as `[MANUAL]`-heavy in the final checklist. |
+
+If Q3 = `Confirmed breach`, bump urgency: **disconnect integrations (Step 7) before finishing upstream rotation**, not after — the adversary is presumed active and integration-injected credentials keep re-arming otherwise.
 
 ### Step 2 — Preserve evidence
 

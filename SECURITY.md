@@ -32,14 +32,6 @@ This policy covers the contents of this repository at `github.com/MoizIbnYousaf/
 - Anthropic's Claude Code runtime (report to Anthropic)
 - Any upstream service's rotation UX (report to that service)
 
-## Response
-
-The skill is solo-maintained, so response times are best-effort. Expectations:
-
-- Acknowledgment within 72 hours
-- Fix or detailed response within 14 days for anything genuinely exploitable
-- Credit in the changelog (if you want it)
-
 ## Verification
 
 Before trusting an unfamiliar version of this skill during an incident, run the verification recipe in [`THREAT_MODEL.md`](THREAT_MODEL.md) — it takes about 30 seconds and confirms the allowlist, dry-run defaults, and absence of upstream-rotation scripts.
